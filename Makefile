@@ -1,14 +1,13 @@
 SRCS = mongoose.c test/unit_test.c test/packed_fs.c
-HDRS = $(wildcard src/*.h) $(wildcard src/drivers/*.h)
+HDRS = $(wildcard src/*.h) $(wildcard src/tcpip/*.h)
 DEFS ?= -DMG_MAX_HTTP_HEADERS=7 -DMG_ENABLE_LINES -DMG_ENABLE_PACKED_FS=1 -DMG_ENABLE_SSI=1 -DMG_ENABLE_ASSERT=1
 WARN ?= -pedantic -W -Wall -Werror -Wshadow -Wdouble-promotion -fno-common -Wconversion -Wundef
 OPTS ?= -O3 -g3
 INCS ?= -Isrc -I.
 SSL ?=
 CWD ?= $(realpath $(CURDIR))
-ENV ?=  -e Tmp=. -e WINEDEBUG=-all
-DOCKER_BIN ?= docker
-DOCKER ?= $(DOCKER_BIN) run --platform linux/amd64 --rm $(ENV) -v $(CWD):$(CWD) -w $(CWD)
+ENV ?=  -e Tmp=. -e WINEDEBUG=-all 
+DOCKER ?= docker run --platform linux/amd64 --rm $(ENV) -v $(CWD):$(CWD) -w $(CWD)
 VCFLAGS = /nologo /W3 /O2 /MD /I. $(DEFS) $(TFLAGS)
 IPV6 ?= 1
 ASAN ?= -fsanitize=address,undefined,alignment -fno-sanitize-recover=all -fno-omit-frame-pointer -fno-common
@@ -37,18 +36,26 @@ endif
 
 ifeq "$(SSL)" "MBEDTLS"
 MBEDTLS ?= /usr/local
-CFLAGS  += -DMG_TLS=MG_TLS_MBED -I$(MBEDTLS)/include -I/usr/include
+CFLAGS  += -DMG_ENABLE_MBEDTLS=1 -I$(MBEDTLS)/include -I/usr/include
 LDFLAGS += -L$(MBEDTLS)/lib -lmbedtls -lmbedcrypto -lmbedx509
 endif
 
 ifeq "$(SSL)" "OPENSSL"
 OPENSSL ?= /usr/local
-CFLAGS  += -DMG_TLS=MG_TLS_OPENSSL -I$(OPENSSL)/include
+CFLAGS  += -DMG_ENABLE_OPENSSL=1 -I$(OPENSSL)/include
 LDFLAGS += -L$(OPENSSL)/lib -lssl -lcrypto
 endif
 
-all:
-	$(MAKE) -C examples/http-server
+ifeq "$(SSL)" "WOLFSSL"
+WOLFSSL ?= /usr/local
+CFLAGS  += -DMG_ENABLE_WOLFSSL=1 -I$(WOLFSSL)/include
+LDFLAGS ?= -L$(WOLFSSL)/lib -lwolfssl
+ifdef MG_ENABLE_WOLFSSL_DEBUG
+CFLAGS += -DMG_ENABLE_WOLFSSL_DEBUG
+endif
+endif
+
+all: mg_prefix unamalgamated test mip_test arm examples vc98 vc17 vc22 mingw mingw++ fuzz
 
 tall: mg_prefix unamalgamated test mip_test arm examples vc98 vc17 vc22 mingw mingw++ fuzz
 
@@ -75,9 +82,16 @@ examples_win:
 clean_examples_win:
 	$(foreach X, $(EXAMPLES_WIN), $(MAKE) -C $(X) clean &)
 
-test/packed_fs.c: Makefile src/ssi.h test/fuzz.c test/data/a.txt test/data/ca.pem
+test/packed_fs.c: Makefile src/ssi.h test/fuzz.c test/data/a.txt
 	$(CC) $(CFLAGS) test/pack.c -o pack
-	$(RUN) ./pack Makefile src/ssi.h test/fuzz.c test/data/a.txt test/data/range.txt test/data/ca.pem > $@
+	$(RUN) ./pack Makefile src/ssi.h test/fuzz.c test/data/a.txt test/data/range.txt > $@
+
+DIR ?= test/data
+OUT ?= packed_fs.c
+mkfs:
+	$(CC) $(CFLAGS) test/pack.c -o pack
+	$(RUN) ./pack -s $(DIR) `find $(DIR) -type f` > $(OUT)
+#	find $(DIR) -type f | sed -e s,^$(DIR),,g -e s,^/,,g
 
 # Check that all external (exported) symbols have "mg_" prefix
 mg_prefix: mongoose.c mongoose.h
@@ -89,8 +103,7 @@ musl: WARN += -Wno-sign-conversion
 musl: CC = $(DOCKER) mdashnet/cc1 gcc
 musl: RUN = $(DOCKER) mdashnet/cc1
 
-# Make sure we can build from unamalgamated sources.
-unamalgamated: CFLAGS += -DMG_ENABLE_MD5=1
+# Make sure we can build from an unamalgamated sources
 unamalgamated: $(HDRS) Makefile test/packed_fs.c
 	$(CC) src/*.c test/packed_fs.c test/unit_test.c $(CFLAGS) $(LDFLAGS) -g -o unit_test
 
@@ -140,6 +153,33 @@ riscv: DEFS += -DMG_ENABLE_FILE=0 -DMG_ENABLE_TCPIP=1 -DMG_ARCH=MG_ARCH_NEWLIB
 riscv: mongoose.h $(SRCS)
 	$(DOCKER) mdashnet/riscv riscv-none-elf-gcc -march=rv32imc -mabi=ilp32 $(SRCS) $(OPTS) $(WARN) $(INCS) $(DEFS) $(TFLAGS) -o unit_test
 
+wasm: WASI_SDK_PATH ?= /opt/wasi-sdk
+wasm: WAMR_PATH ?= /opt/wasm-micro-runtime
+wasm: ASAN=
+wasm: CFLAGS += -DWOLFSSL_WASM=1
+wasm: INCS += -I$(WAMR_PATH)/core/iwasm/libraries/lib-socket/inc
+wasm: WARN += -Wno-sign-conversion -Wno-unused-variable -Wno-unused-parameter -Wno-sign-compare -Wno-unused-function
+wasm: IPV6 = 0
+wasm: WOLFSSL = ../wolfssl
+wasm: CFLAGS  += -I$(WOLFSSL)
+wasm: LDFLAGS += -L$(WOLFSSL)/IDE/Wasm -lwolfssl
+wasm: Makefile mongoose.h $(SRCS)
+	if [ ! -d "$(WOLFSSL)" ]; then echo "The WOLFSSL variable does not point on a valid folder: $(WOLFSSL)"; exit 1; fi
+	$(WASI_SDK_PATH)/bin/clang \
+		-c -isysroot/ \
+		--target=wasm32-wasi \
+		-Wl,--export=malloc -Wl,--export=free \
+		-z stack-size=655360 \
+		--sysroot=$(WASI_SDK_PATH)/share/wasi-sysroot/ \
+		-Wl,--allow-undefined-file=$(WASI_SDK_PATH)/share/wasi-sysroot/share/wasm32-wasi/defined-symbols.txt \
+		-Wl,--strip-all \
+		$(CFLAGS) \
+		$(LDFLAGS) \
+		$(SRCS) $(WAMR_PATH)/core/iwasm/libraries/lib-socket/src/wasi/wasi_socket_ext.c
+		
+	$(WASI_SDK_PATH)/bin/llvm-ar rcs libwasm_mongoose.a *.o
+
+
 vc98: Makefile mongoose.h $(SRCS)
 	$(DOCKER) mdashnet/vc98 wine cl $(SRCS) $(VCFLAGS) ws2_32.lib /Fe$@.exe
 	$(DOCKER) mdashnet/vc98 wine $@.exe
@@ -155,6 +195,21 @@ vc22: Makefile mongoose.h $(SRCS)
 mingw: Makefile mongoose.h $(SRCS)
 	$(DOCKER) mdashnet/mingw x86_64-w64-mingw32-gcc $(SRCS) -W -Wall -Werror -I. $(DEFS) -lwsock32 -o $@.exe
 	$(DOCKER) mdashnet/mingw wine64 $@.exe
+
+arduino: ENV = -v $(CWD)/arduino:/root
+arduino:
+	curl -sL http://downloads.arduino.cc/arduino-1.8.19-linux64.tar.xz | unxz | tar -xf -
+	mv arduino-* $@
+	$(DOCKER) mdashnet/cc2 ./arduino/arduino --pref "boardsmanager.additional.urls=https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json" --save-prefs
+	$(DOCKER) mdashnet/cc2 ./arduino/arduino --pref "compiler.warning_level=all" --save-prefs
+	$(DOCKER) mdashnet/cc2 ./arduino/arduino --install-boards Seeeduino:samd
+
+arduino-xiao: ENV = -v $(CWD)/arduino:/root
+arduino-xiao: arduino
+	rm -rf tmp; mkdir tmp
+	cp examples/arduino/w5500/w5500.ino tmp/tmp.ino
+	cp mongoose.c mongoose.h examples/arduino/w5500/mongoose_custom.h tmp/
+	$(DOCKER) mdashnet/cc2 ./arduino/arduino --verbose --verify --board Seeeduino:samd:seeed_XIAO_m0 tmp/tmp.ino
 
 mingw++: Makefile mongoose.h $(SRCS)
 	$(DOCKER) mdashnet/mingw x86_64-w64-mingw32-g++ $(SRCS) -W -Wall -Werror -I. $(DEFS) -lwsock32 -o $@.exe
@@ -173,15 +228,15 @@ install: linux-libs
 uninstall:
 	rm -rf $(DESTDIR)$(LIBDIR)/libmongoose.a $(DESTDIR)$(LIBDIR)/libmongoose.so.$(VERSION) $(DESTDIR)$(INCLUDEDIR)/mongoose.h $(DESTDIR)$(LIBDIR)/libmongoose.so
 
-mongoose.c: Makefile $(wildcard src/*.c) $(wildcard src/drivers/*.c)
-	(cat src/license.h; echo; echo '#include "mongoose.h"' ; (for F in src/*.c src/drivers/*.c ; do echo; echo '#ifdef MG_ENABLE_LINES'; echo "#line 1 \"$$F\""; echo '#endif'; cat $$F | sed -e 's,#include ".*,,'; done))> $@
+mongoose.c: Makefile $(wildcard src/*.c) $(wildcard src/tcpip/*.c)
+	(cat src/license.h; echo; echo '#include "mongoose.h"' ; (for F in src/*.c src/tcpip/*.c ; do echo; echo '#ifdef MG_ENABLE_LINES'; echo "#line 1 \"$$F\""; echo '#endif'; cat $$F | sed -e 's,#include ".*,,'; done))> $@
 
 mongoose.h: $(HDRS) Makefile
-	(cat src/license.h; echo; echo '#ifndef MONGOOSE_H'; echo '#define MONGOOSE_H'; echo; cat src/version.h ; echo; echo '#ifdef __cplusplus'; echo 'extern "C" {'; echo '#endif'; cat src/arch.h src/arch_*.h src/net_ft.h src/net_lwip.h src/net_rl.h src/config.h src/str.h src/queue.h src/fmt.h src/printf.h src/log.h src/timer.h src/fs.h src/util.h src/url.h src/iobuf.h src/base64.h src/md5.h src/sha1.h src/event.h src/net.h src/http.h src/ssi.h src/tls.h src/tls_mbed.h src/tls_openssl.h src/ws.h src/sntp.h src/mqtt.h src/dns.h src/json.h src/rpc.h src/ota.h src/device.h src/net_builtin.h src/drivers/*.h | sed -e '/keep/! s,#include ".*,,' -e 's,^#pragma once,,'; echo; echo '#ifdef __cplusplus'; echo '}'; echo '#endif'; echo '#endif  // MONGOOSE_H')> $@
+	(cat src/license.h; echo; echo '#ifndef MONGOOSE_H'; echo '#define MONGOOSE_H'; echo; cat src/version.h ; echo; echo '#ifdef __cplusplus'; echo 'extern "C" {'; echo '#endif'; cat src/arch.h src/arch_*.h src/net_*.h src/config.h src/str.h src/queue.h src/fmt.h src/printf.h src/log.h src/timer.h src/fs.h src/util.h src/url.h src/iobuf.h src/base64.h src/md5.h src/sha1.h src/event.h src/net.h src/http.h src/ssi.h src/tls.h src/tls_mbed.h src/tls_openssl.h src/ws.h src/sntp.h src/mqtt.h src/dns.h src/json.h src/rpc.h src/tcpip/tcpip.h src/tcpip/driver_*.h | sed -e '/keep/! s,#include ".*,,' -e 's,^#pragma once,,'; echo; echo '#ifdef __cplusplus'; echo '}'; echo '#endif'; echo '#endif  // MONGOOSE_H')> $@
 
 
 clean: clean_examples clean_embedded
-	rm -rf $(PROG) *.exe *.o *.dSYM *_test* ut fuzzer *.gcov *.gcno *.gcda *.obj *.exe *.ilk *.pdb slow-unit* _CL_* infer-out data.txt crash-* test/packed_fs.c pack
+	rm -rf $(PROG) *.exe *.o *.dSYM *_test* ut fuzzer *.gcov *.gcno *.gcda *.obj *.exe *.ilk *.pdb slow-unit* _CL_* infer-out data.txt crash-* test/packed_fs.c pack arduino tmp
 	#find examples -maxdepth 3 -name zephyr -prune -o -name Makefile -print | xargs dirname | xargs -n1 make clean -C
 
 clean_embedded:

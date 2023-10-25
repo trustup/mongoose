@@ -1,7 +1,7 @@
 // Copyright (c) 2020-2022 Cesanta Software Limited
 // All rights reserved
 
-#include "net.h"
+#include "web.h"
 
 static int s_sig_num;
 static void signal_handler(int sig_num) {

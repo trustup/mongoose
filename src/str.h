@@ -34,4 +34,5 @@ bool mg_split(struct mg_str *s, struct mg_str *k, struct mg_str *v, char delim);
 char *mg_hex(const void *buf, size_t len, char *dst);
 void mg_unhex(const char *buf, size_t len, unsigned char *to);
 unsigned long mg_unhexn(const char *s, size_t len);
-bool mg_path_is_sane(const char *path);
+int mg_check_ip_acl(struct mg_str acl, uint32_t remote_ip);
+char *mg_remove_double_dots(char *s);

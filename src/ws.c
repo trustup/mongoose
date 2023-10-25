@@ -43,7 +43,7 @@ static void ws_handshake(struct mg_connection *c, const struct mg_str *wskey,
   mg_sha1_update(&sha_ctx, (unsigned char *) wskey->ptr, wskey->len);
   mg_sha1_update(&sha_ctx, (unsigned char *) magic, 36);
   mg_sha1_final(sha, &sha_ctx);
-  mg_base64_encode(sha, sizeof(sha), (char *) b64_sha, sizeof(b64_sha));
+  mg_base64_encode(sha, sizeof(sha), (char *) b64_sha);
   mg_xprintf(mg_pfn_iobuf, &c->send,
              "HTTP/1.1 101 Switching Protocols\r\n"
              "Upgrade: websocket\r\n"
@@ -146,15 +146,12 @@ static bool mg_ws_client_handshake(struct mg_connection *c) {
     mg_error(c, "not http");  // Some just, not an HTTP request
   } else if (n > 0) {
     if (n < 15 || memcmp(c->recv.buf + 9, "101", 3) != 0) {
-      mg_error(c, "ws handshake error");
+      mg_error(c, "handshake error");
     } else {
       struct mg_http_message hm;
-      if (mg_http_parse((char *) c->recv.buf, c->recv.len, &hm)) {
-        c->is_websocket = 1;
-        mg_call(c, MG_EV_WS_OPEN, &hm);
-      } else {
-        mg_error(c, "ws handshake error");
-      }
+      mg_http_parse((char *) c->recv.buf, c->recv.len, &hm);
+      c->is_websocket = 1;
+      mg_call(c, MG_EV_WS_OPEN, &hm);
     }
     mg_iobuf_del(&c->recv, 0, (size_t) n);
   } else {
@@ -242,7 +239,7 @@ struct mg_connection *mg_ws_connect(struct mg_mgr *mgr, const char *url,
     char nonce[16], key[30];
     struct mg_str host = mg_url_host(url);
     mg_random(nonce, sizeof(nonce));
-    mg_base64_encode((unsigned char *) nonce, sizeof(nonce), key, sizeof(key));
+    mg_base64_encode((unsigned char *) nonce, sizeof(nonce), key);
     mg_xprintf(mg_pfn_iobuf, &c->send,
                "GET %s HTTP/1.1\r\n"
                "Upgrade: websocket\r\n"
@@ -271,7 +268,9 @@ void mg_ws_upgrade(struct mg_connection *c, struct mg_http_message *hm,
   c->pfn_data = NULL;
   if (wskey == NULL) {
     mg_http_reply(c, 426, "", "WS upgrade expected\n");
+#ifndef WASM_WORKAROUND_DISABLE_DRAINING
     c->is_draining = 1;
+#endif
   } else {
     struct mg_str *wsproto = mg_http_get_header(hm, "Sec-WebSocket-Protocol");
     va_list ap;
