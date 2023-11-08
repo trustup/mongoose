@@ -1,6 +1,6 @@
 #pragma once
 
-#if MG_TLS == MG_TLS_OPENSSL
+#if MG_ENABLE_OPENSSL
 
 #include <openssl/err.h>
 #include <openssl/ssl.h>

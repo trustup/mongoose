@@ -14,8 +14,8 @@
 #define BLINK_PERIOD_MS 1000  // LED blinking period in millis
 
 static void timer_fn(void *arg) {
-  struct mg_tcpip_if *ifp = arg;                         // And show
-  const char *names[] = {"down", "up", "req", "ready"};  // network stats
+  struct mg_tcpip_if *ifp = arg;                  // And show
+  const char *names[] = {"down", "up", "ready"};  // network stats
   MG_INFO(("Ethernet: %s, IP: %M, rx:%u, tx:%u, dr:%u, er:%u",
            names[ifp->state], mg_print_ip4, &ifp->ip, ifp->nrecv, ifp->nsent,
            ifp->ndrop, ifp->nerr));
@@ -53,14 +53,12 @@ static void server(void *args) {
   mg_log_set(MG_LL_DEBUG);  // Set log level
 
   // Initialise Mongoose network stack
+  // Specify MAC address, and IP/mask/GW in network byte order for static
+  // IP configuration. If IP/mask/GW are unset, DHCP is going to be used
   ethernet_init();
   struct mg_tcpip_driver_tm4c_data driver_data = {.mdc_cr = 1};
   struct mg_tcpip_if mif = {
       .mac = READ_PREFLASHED_MAC(),
-      // Uncomment below for static configuration:
-      // .ip = mg_htonl(MG_U32(192, 168, 0, 223)),
-      // .mask = mg_htonl(MG_U32(255, 255, 255, 0)),
-      // .gw = mg_htonl(MG_U32(192, 168, 0, 1)),
       .driver = &mg_tcpip_driver_tm4c,
       .driver_data = &driver_data,
   };

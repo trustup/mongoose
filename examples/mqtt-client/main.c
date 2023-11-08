@@ -20,23 +20,21 @@ static struct mg_connection *s_conn;              // Client connection
 
 // Handle interrupts, like Ctrl-C
 static int s_signo;
-static void signal_handler(int signo) {
-  s_signo = signo;
-}
+static void signal_handler(int signo) { s_signo = signo; }
 
 static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
   if (ev == MG_EV_OPEN) {
     MG_INFO(("%lu CREATED", c->id));
     // c->is_hexdumping = 1;
-  } else if (ev == MG_EV_CONNECT) {
-    if (mg_url_is_ssl(s_url)) {
-      struct mg_tls_opts opts = {.ca = mg_unpacked("/certs/ca.pem"),
-                                 .name = mg_url_host(s_url)};
-      mg_tls_init(c, &opts);
-    }
   } else if (ev == MG_EV_ERROR) {
     // On error, log error message
     MG_ERROR(("%lu ERROR %s", c->id, (char *) ev_data));
+  } else if (ev == MG_EV_CONNECT) {
+    // If target URL is SSL/TLS, command client connection to use TLS
+    if (mg_url_is_ssl(s_url)) {
+      struct mg_tls_opts opts = {.ca = "ca.pem"};
+      mg_tls_init(c, &opts);
+    }
   } else if (ev == MG_EV_MQTT_OPEN) {
     // MQTT connect is successful
     struct mg_str subt = mg_str(s_sub_topic);

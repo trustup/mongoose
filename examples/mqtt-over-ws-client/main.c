@@ -9,14 +9,14 @@
 //
 // To enable SSL/TLS, see https://mongoose.ws/tutorials/tls/#how-to-build
 
-#include "mongoose.h"
-
-static const char *s_url =
-#if MG_TLS
-    "wss://broker.hivemq.com:8884/mqtt";
+static const char *s_url = 
+#if defined(MG_ENABLE_MBEDTLS) || defined(MG_ENABLE_OPENSSL)
+  "wss://broker.hivemq.com:8884/mqtt";
 #else
-    "ws://broker.hivemq.com:8000/mqtt";
+  "ws://broker.hivemq.com:8000/mqtt";
 #endif
+
+#include "mongoose.h"
 
 static const char *s_topic = "mg/test";
 
@@ -25,16 +25,17 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
     // On error, log error message
     MG_ERROR(("%p %s", c->fd, (char *) ev_data));
   } else if (ev == MG_EV_CONNECT) {
+    // If target URL is SSL/TLS, command client connection to use TLS
     if (mg_url_is_ssl(s_url)) {
-      struct mg_tls_opts opts = {.ca = mg_unpacked("/certs/ca.pem"),
-                                 .name = mg_url_host(s_url)};
+      struct mg_tls_opts opts = {.ca = "ca.pem"};
       mg_tls_init(c, &opts);
     }
   } else if (ev == MG_EV_WS_OPEN) {
     // WS connection established. Perform MQTT login
     MG_INFO(("Connected to WS. Logging in to MQTT..."));
-    struct mg_mqtt_opts opts = {
-        .qos = 1, .topic = mg_str(s_topic), .message = mg_str("goodbye")};
+    struct mg_mqtt_opts opts = {.qos = 1,
+                                .topic = mg_str(s_topic),
+                                .message = mg_str("goodbye")};
     size_t len = c->send.len;
     mg_mqtt_login(c, &opts);
     mg_ws_wrap(c, c->send.len - len, WEBSOCKET_OP_BINARY);
@@ -71,7 +72,7 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
             len = mg_ws_wrap(c, c->send.len - len, WEBSOCKET_OP_BINARY);
           } else {
             MG_ERROR(("%lu MQTT auth failed, code %d", c->id, mm.ack));
-            c->is_draining = 1;
+            c->is_closing = 1;
           }
           break;
         case MQTT_CMD_PUBLISH: {
@@ -79,7 +80,7 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
                     mm.topic.ptr, (int) mm.data.len, mm.data.ptr));
           MG_INFO(("RECEIVED %.*s <- %.*s", (int) mm.data.len, mm.data.ptr,
                    (int) mm.topic.len, mm.topic.ptr));
-          c->is_draining = 1;
+          c->is_closing = 1;
           break;
         }
       }

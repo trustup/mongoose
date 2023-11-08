@@ -1,8 +1,6 @@
-//  NOTE: API calls must start with 'api/' in order to serve the app at any URI
-
 'use strict';
 import { h, render, useState, useEffect, useRef, html, Router } from  './bundle.js';
-import { Icons, Login, Setting, Button, Stat, tipColors, Colored, Notification, Pagination, UploadFileButton } from './components.js';
+import { Icons, Login, Setting, Button, Stat, tipColors, Colored, Notification } from './components.js';
 
 const Logo = props => html`<svg class=${props.class} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12.87 12.85"><defs><style>.ll-cls-1{fill:none;stroke:#000;stroke-miterlimit:10;stroke-width:0.5px;}</style></defs><g id="Layer_2" data-name="Layer 2"><g id="Layer_1-2" data-name="Layer 1"><path class="ll-cls-1" d="M12.62,1.82V8.91A1.58,1.58,0,0,1,11,10.48H4a1.44,1.44,0,0,1-1-.37A.69.69,0,0,1,2.84,10l-.1-.12a.81.81,0,0,1-.15-.48V5.57a.87.87,0,0,1,.86-.86H4.73V7.28a.86.86,0,0,0,.86.85H9.42a.85.85,0,0,0,.85-.85V3.45A.86.86,0,0,0,10.13,3,.76.76,0,0,0,10,2.84a.29.29,0,0,0-.12-.1,1.49,1.49,0,0,0-1-.37H2.39V1.82A1.57,1.57,0,0,1,4,.25H11A1.57,1.57,0,0,1,12.62,1.82Z"/><path class="ll-cls-1" d="M10.48,10.48V11A1.58,1.58,0,0,1,8.9,12.6H1.82A1.57,1.57,0,0,1,.25,11V3.94A1.57,1.57,0,0,1,1.82,2.37H8.9a1.49,1.49,0,0,1,1,.37l.12.1a.76.76,0,0,1,.11.14.86.86,0,0,1,.14.47V7.28a.85.85,0,0,1-.85.85H8.13V5.57a.86.86,0,0,0-.85-.86H3.45a.87.87,0,0,0-.86.86V9.4a.81.81,0,0,0,.15.48l.1.12a.69.69,0,0,0,.13.11,1.44,1.44,0,0,0,1,.37Z"/></g></g></svg>`;
 
@@ -45,9 +43,7 @@ function Sidebar({url, show}) {
     <//>
     <div class="flex flex-1 flex-col">
       <${NavLink} title="Dashboard" icon=${Icons.home} href="/" url=${url} />
-      <${NavLink} title="Settings" icon=${Icons.cog} href="/settings" url=${url} />
-      <${NavLink} title="Firmware Update" icon=${Icons.download} href="/update" url=${url} />
-      <${NavLink} title="Events" icon=${Icons.alert} href="/events" url=${url} />
+      <${NavLink} title="Settings" icon=${Icons.settings} href="/settings" url=${url} />
     <//>
   <//>
 <//>`;
@@ -55,23 +51,8 @@ function Sidebar({url, show}) {
 
 function Events({}) {
   const [events, setEvents] = useState([]);
-  const [page, setPage] = useState(1);
-
-  const refresh = () =>
-    fetch('api/events/get', {
-        method: 'POST', body: JSON.stringify({page: page}),
-      }).then(r => r.json())
-        .then(r => setEvents(r));
-
-  useEffect(refresh, [page]);
-
-  useEffect(() => {
-    setPage(JSON.parse(localStorage.getItem('page')));
-      }, []);
-
-  useEffect(() => {
-    localStorage.setItem('page', page.toString());
-  }, [page]);
+  const refresh = () => fetch('api/events/get').then(r => r.json()).then(r => setEvents(r)).catch(e => console.log(e));
+  useEffect(refresh, []);
 
   const Th = props => html`<th scope="col" class="sticky top-0 z-10 border-b border-slate-300 bg-white bg-opacity-75 py-1.5 px-4 text-left text-sm font-semibold text-slate-900 backdrop-blur backdrop-filter">${props.title}</th>`;
   const Td = props => html`<td class="whitespace-nowrap border-b border-slate-200 py-2 px-4 pr-3 text-sm text-slate-900">${props.text}</td>`;
@@ -80,25 +61,22 @@ function Events({}) {
     const colors = [tipColors.red, tipColors.yellow, tipColors.green][prio];
     return html`<${Colored} colors=${colors} text=${text} />`;
   };
-
   const Event = ({e}) => html`
 <tr>
   <${Td} text=${['power', 'hardware', 'tier3', 'tier4'][e.type]} />
   <${Td} text=${html`<${Prio} prio=${e.prio}/>`} />
-  <${Td} text=${e.time ? (new Date(e.time * 1000)).toLocaleString() : '1970-01-01'} />
+  <${Td} text=${e.time || '1970-01-01'} />
   <${Td} text=${e.text} />
 <//>`;
+  //console.log(events);
 
-return html`
-<div class="m-4 divide-y divide-gray-200 overflow-auto rounded bg-white">
-  <div class="font-semibold flex items-center text-gray-600 px-3 justify-between whitespace-nowrap">
-    <div class="font-semibold flex items-center text-gray-600">
-      <div class="mr-4">EVENT LOG</div>
-    </div>
-    <${Pagination} currentPage=${page} setPageFn=${setPage} totalItems=400 itemsPerPage=20 />
+  return html`
+<div class="my-4 h-64 divide-y divide-gray-200 rounded bg-white overflow-auto">
+  <div class="font-light uppercase flex items-center text-slate-600 px-4 py-2">
+    Event Log
   <//>
-  <div class="inline-block min-w-full align-middle" style="max-height: 82vh; overflow: auto;">
-    <table class="min-w-full border-separate border-spacing-0">
+  <div class="">
+    <table class="">
       <thead>
         <tr>
           <${Th} title="Type" />
@@ -108,7 +86,7 @@ return html`
         </tr>
       </thead>
       <tbody>
-        ${(events.arr ? events.arr : []).map(e => h(Event, {e}))}
+        ${events.map(e => h(Event, {e}))}
       </tbody>
     </table>
   <//>
@@ -144,16 +122,13 @@ function Chart({data}) {
 <//>`;
 };
 
-function DeveloperNote({text, children}) {
+function DeveloperNote({text}) {
   return html`
 <div class="flex p-4 gap-2">
-  <div class="text-sm text-slate-500">
-    <div class="flex items-center">
-      <${Icons.info} class="self-start basis-[30px] grow-0 shrink-0 text-green-600 mr-2" />
-      <div class="font-semibold">Developer Note<//>
-    <//>
-    ${(text || '').split('.').map(v => html` <p class="my-2 ">${v}<//>`)}
-    ${children}
+  <${Icons.info} class="self-start basis-[30px] grow-0 shrink-0 text-green-600" />
+  <div class="text-sm">
+    <div class="font-semibold mt-1">Developer Note<//>
+    ${text.split('.').map(v => html` <p class="my-2 text-slate-500">${v}<//>`)}
   <//>
 <//>`;
 };
@@ -173,108 +148,24 @@ function Main({}) {
     <//>
   <//>
   <div class="p-4 sm:p-2 mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <${Events} />
+
+    <div class="my-4 hx-24 bg-white border rounded-md shadow-lg" role="alert">
+      <${DeveloperNote}
+        text="Events data is also received from the backend,
+        via the /api/events/get API call, which returns an array of objects each
+        representing an event. Events table is scrollable,
+        Table header is sticky" />
+    <//>
 
     <${Chart} data=${stats.points} />
 
     <div class="my-4 hx-24 bg-white border rounded-md shadow-lg" role="alert">
       <${DeveloperNote}
         text="This chart is an SVG image, generated on the fly from the
-        data returned by the api/stats/get API call" />
+        data returned by the /api/stats/get API call" />
     <//>
   <//>
-<//>`;
-};
-
-function FirmwareStatus({title, info, children}) {
-  const state = ['UNAVAILABLE', 'FIRST_BOOT', 'NOT_COMMITTED', 'COMMITTED'][(info.status || 0) % 4];
-  const valid = info.status > 0;
-  return html`
-<div class="bg-white py-1 divide-y border rounded">
-  <div class="font-light uppercase flex items-center text-gray-600 px-4 py-2">
-    ${title}
-  <//>
-  <div class="px-4 py-2 relative">
-    <div class="my-1">Status: ${state}<//>
-    <div class="my-1">CRC32: ${valid ? info.crc32.toString(16) : 'n/a'}<//>
-    <div class="my-1">Size: ${valid ? info.size : 'n/a'}<//>
-    <div class="my-1">Flashed at: ${valid ? new Date(info.timestamp * 1000).toLocaleString() : 'n/a'}<//>
-    ${children}
-  <//>
-<//>`;
-};
-
-
-function FirmwareUpdate({}) {
-  const [info, setInfo] = useState([{}, {}]);
-  const refresh = () => fetch('api/firmware/status').then(r => r.json()).then(r => setInfo(r));
-  useEffect(refresh, []);
-  const oncommit = ev => fetch('api/firmware/commit')
-    .then(r => r.json())
-    .then(refresh);
-  const onreboot = ev => fetch('api/device/reset')
-    .then(r => r.json())
-    .then(r => new Promise(r => setTimeout(ev => { refresh(); r(); }, 3000)));
-  const onrollback = ev => fetch('api/firmware/rollback')
-    .then(onreboot);
-  const onupload = function(ok, name, size) {
-    if (!ok) return false;
-    return new Promise(r => setTimeout(ev => { refresh(); r(); }, 3000));
-  };
-  const clean = info[0].valid && info[0].golden == 0;
-  return html`
-<div class="m-4 gap-4 grid grid-cols-1 lg:grid-cols-2">
-  <${FirmwareStatus} title="Current firmware image" info=${info[0]}>
-    <div class="flex flex-wrap gap-2">
-      <${Button} title="Commit this firmware"
-        onclick=${oncommit} icon=${Icons.thumbUp} disabled=${clean} />
-      <${Button} title="Reboot device" onclick=${onreboot} icon=${Icons.refresh} clsx="absolute top-4 right-4" />
-      <${UploadFileButton}
-        title="Upload new firmware: choose .bin file:" onupload=${onupload}
-      url="api/firmware/upload" accept=".bin,.uf2" />
-    <//>
-  <//>
-  <${FirmwareStatus} title="Previous firmware image" info=${info[1]}>
-    <${Button} title="Rollback to this firmware" onclick=${onrollback}
-      icon=${Icons.backward} disabled=${info[1].valid == false} />
-  <//>
-
-  <div class="bg-white border shadow-lg">
-    <${DeveloperNote}>
-      <div class="my-2">
-        When a new firmware gets flashed, its status is marked as, "first_boot".
-        That is an unreliable (uncommitted) firmware. A user may choose
-        to revert back to the previous committed firmware on the subsequent
-        boots. Clicking on the "commit" button calls "mg_ota_commit()" function
-        which commits the firmware.
-      <//>
-      <div class="my-2">  
-        This GUI loads a firmware file and sends it chunk by chunk to the
-        device, passing current chunk offset, total firmware size and a file name:
-        api/firmware/upload?offset=X&total=Y&name=Z
-      <//>
-    <//>
-  <//>
-
-  <div class="bg-white border shadow-lg">
-    <${DeveloperNote}>
-      <div>
-        Firmware update mechanism defines 3 API functions that the target
-        device must implement: mg_ota_begin(), mg_ota_write() and mg_ota_end()
-      <//>
-      <div class="my-2">  
-        RESTful API handlers use ota_xxx() API to save firmware to flash.
-        The last 0-length chunk triggers ota_end() which performs firmware
-        update using saved firmware image
-      <//>
-      <div class="my-2">  
-        <a class="link text-blue-600 underline" 
-          href="https://mongoose.ws/webinars/">Join our free webinar</a> to
-        get detailed explanations about possible firmware updates strategies
-        and implementation demo
-      <//>
-    <//>
-  <//>
-
 <//>`;
 };
 
@@ -319,8 +210,8 @@ function Settings({}) {
         text="A variety of controls are pre-defined to ease the development:
           toggle button, dropdown select, input field with left and right
           addons. Device settings are received by calling
-          api/settings/get API call, which returns settings JSON object.
-          Clicking on the save button calls api/settings/set
+          /api/settings/get API call, which returns settings JSON object.
+          Clicking on the save button calls /api/settings/set
           API call" />
   <//>
 
@@ -353,8 +244,6 @@ const App = function({}) {
     <${Router} onChange=${ev => setUrl(ev.url)} history=${History.createHashHistory()} >
       <${Main} default=${true} />
       <${Settings} path="settings" />
-      <${FirmwareUpdate} path="update" />
-      <${Events} path="events" />
     <//>
   <//>
 <//>`;
