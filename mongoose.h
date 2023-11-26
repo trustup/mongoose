@@ -85,17 +85,6 @@ extern "C" {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 #if MG_ARCH == MG_ARCH_AZURERTOS
 
 #include <stdarg.h>
@@ -122,7 +111,6 @@ extern "C" {
 
 #endif
 
-
 #if MG_ARCH == MG_ARCH_ESP32
 
 #include <ctype.h>
@@ -145,7 +133,6 @@ extern "C" {
 #define MG_PATH_MAX 128
 
 #endif
-
 
 #if MG_ARCH == MG_ARCH_ESP8266
 
@@ -220,7 +207,6 @@ static inline int mg_mkdir(const char *path, mode_t mode) {
 
 #endif  // MG_ARCH == MG_ARCH_FREERTOS
 
-
 #if MG_ARCH == MG_ARCH_NEWLIB
 #define _POSIX_TIMERS
 
@@ -242,7 +228,6 @@ static inline int mg_mkdir(const char *path, mode_t mode) {
 #define MG_ENABLE_DIRLIST 0
 
 #endif
-
 
 #if MG_ARCH == MG_ARCH_RP2040
 #include <errno.h>
@@ -299,7 +284,6 @@ static inline int mg_mkdir(const char *path, mode_t mode) {
 
 #endif
 
-
 #if MG_ARCH == MG_ARCH_TIRTOS
 
 #include <ctype.h>
@@ -315,13 +299,9 @@ static inline int mg_mkdir(const char *path, mode_t mode) {
 #include <serrno.h>
 #include <sys/socket.h>
 
-//### extern int SockStatus(SOCKET hSock, int request, int *results);
-//### extern int SockSet(SOCKET hSock, int Type, int Prop, void *pbuf, int
-// size);
 #include <ti/sysbios/knl/Clock.h>
 
 #endif
-
 
 #if MG_ARCH == MG_ARCH_UNIX
 
@@ -381,7 +361,6 @@ static inline int mg_mkdir(const char *path, mode_t mode) {
 
 #endif
 
-
 #if MG_ARCH == MG_ARCH_WASM
 
 #define MG_ENABLE_POLL 1
@@ -426,7 +405,6 @@ static inline int mg_mkdir(const char *path, mode_t mode) {
 #endif
 
 #endif
-
 
 #if MG_ARCH == MG_ARCH_WIN32
 
@@ -538,7 +516,6 @@ typedef int socklen_t;
 #endif
 
 #endif
-
 
 #if MG_ARCH == MG_ARCH_ZEPHYR
 
@@ -783,7 +760,7 @@ struct timeval {
 #endif
 
 #ifndef MG_MAX_RECV_SIZE
-#define MG_MAX_RECV_SIZE (3 * 1024 * 1024)  // Maximum recv IO buffer size
+#define MG_MAX_RECV_SIZE (8 * 1024 * 1024)  // Maximum recv IO buffer size
 #endif
 
 #ifndef MG_DATA_SIZE
@@ -850,9 +827,6 @@ struct timeval {
 #define MG_EPOLL_ADD(c)
 #define MG_EPOLL_MOD(c, wr)
 #endif
-
-
-
 
 struct mg_str {
   const char *ptr;  // Pointer to string data
@@ -946,11 +920,6 @@ void mg_pfn_stdout(char c, void *param);  // param: ignored
 // A helper macro for printing JSON: mg_snprintf(buf, len, "%m", MG_ESC("hi"))
 #define MG_ESC(str) mg_print_esc, 0, (str)
 
-
-
-
-
-
 enum { MG_LL_NONE, MG_LL_ERROR, MG_LL_INFO, MG_LL_DEBUG, MG_LL_VERBOSE };
 void mg_log(const char *fmt, ...);
 bool mg_log_prefix(int ll, const char *file, int line, const char *fname);
@@ -975,9 +944,6 @@ void mg_log_set_fn(mg_pfn_t fn, void *param);
 #define MG_DEBUG(args) MG_LOG(MG_LL_DEBUG, args)
 #define MG_VERBOSE(args) MG_LOG(MG_LL_VERBOSE, args)
 
-
-
-
 struct mg_timer {
   unsigned long id;         // Timer ID
   uint64_t period_ms;       // Timer period in milliseconds
@@ -997,10 +963,6 @@ void mg_timer_init(struct mg_timer **head, struct mg_timer *timer,
 void mg_timer_free(struct mg_timer **head, struct mg_timer *);
 void mg_timer_poll(struct mg_timer **head, uint64_t new_ms);
 bool mg_timer_expired(uint64_t *expiration, uint64_t period, uint64_t now);
-
-
-
-
 
 enum { MG_FS_READ = 1, MG_FS_WRITE = 2, MG_FS_DIR = 4 };
 
@@ -1039,9 +1001,6 @@ void mg_fs_close(struct mg_fd *fd);
 char *mg_file_read(struct mg_fs *fs, const char *path, size_t *size);
 bool mg_file_write(struct mg_fs *fs, const char *path, const void *, size_t);
 bool mg_file_printf(struct mg_fs *fs, const char *path, const char *fmt, ...);
-
-
-
 
 
 
@@ -1092,17 +1051,12 @@ uint64_t mg_millis(void);
     *h = (elem_)->next;                    \
   } while (0)
 
-
-
 unsigned short mg_url_port(const char *url);
 int mg_url_is_ssl(const char *url);
 struct mg_str mg_url_host(const char *url);
 struct mg_str mg_url_user(const char *url);
 struct mg_str mg_url_pass(const char *url);
 const char *mg_url_uri(const char *url);
-
-
-
 
 struct mg_iobuf {
   unsigned char *buf;  // Pointer to stored data
@@ -1122,9 +1076,6 @@ int mg_base64_final(char *to, int len);
 int mg_base64_encode(const unsigned char *p, int n, char *to);
 int mg_base64_decode(const char *src, int n, char *dst);
 
-
-
-
 typedef struct {
   uint32_t buf[4];
   uint32_t bits[2];
@@ -1135,9 +1086,6 @@ void mg_md5_init(mg_md5_ctx *c);
 void mg_md5_update(mg_md5_ctx *c, const unsigned char *data, size_t len);
 void mg_md5_final(mg_md5_ctx *c, unsigned char[16]);
 
-
-
-
 typedef struct {
   uint32_t state[5];
   uint32_t count[2];
@@ -1147,7 +1095,6 @@ typedef struct {
 void mg_sha1_init(mg_sha1_ctx *);
 void mg_sha1_update(mg_sha1_ctx *, const unsigned char *data, size_t len);
 void mg_sha1_final(unsigned char digest[20], mg_sha1_ctx *);
-
 
 struct mg_connection;
 typedef void (*mg_event_handler_t)(struct mg_connection *, int ev,
@@ -1177,14 +1124,6 @@ enum {
   MG_EV_SNTP_TIME,   // SNTP time received           uint64_t *epoch_millis
   MG_EV_USER         // Starting ID for user events
 };
-
-
-
-
-
-
-
-
 
 struct mg_dns {
   const char *url;          // DNS server URL
@@ -1284,13 +1223,6 @@ enum { MG_IO_ERR = -1, MG_IO_WAIT = -2, MG_IO_RESET = -3 };
 long mg_io_send(struct mg_connection *c, const void *buf, size_t len);
 long mg_io_recv(struct mg_connection *c, void *buf, size_t len);
 
-
-
-
-
-
-
-
 struct mg_http_header {
   struct mg_str name;   // Header name
   struct mg_str value;  // Header value
@@ -1352,15 +1284,8 @@ size_t mg_http_next_multipart(struct mg_str, size_t, struct mg_http_part *);
 int mg_http_status(const struct mg_http_message *hm);
 void mg_hello(const char *url);
 
-
 void mg_http_serve_ssi(struct mg_connection *c, const char *root,
                        const char *fullpath);
-
-
-
-
-
-
 
 struct mg_tls_opts {
   const char *ca;         // CA certificate file. For both listeners and clients
@@ -1379,12 +1304,6 @@ long mg_tls_recv(struct mg_connection *, void *buf, size_t len);
 size_t mg_tls_pending(struct mg_connection *);
 void mg_tls_handshake(struct mg_connection *);
 
-
-
-
-
-
-
 #if MG_ENABLE_MBEDTLS
 #include <mbedtls/debug.h>
 #include <mbedtls/net_sockets.h>
@@ -1400,7 +1319,6 @@ struct mg_tls {
 };
 #endif
 
-
 #if MG_ENABLE_OPENSSL
 
 #include <openssl/err.h>
@@ -1412,6 +1330,16 @@ struct mg_tls {
 };
 #endif
 
+#if MG_ENABLE_WOLFSSL
+
+#include <wolfssl/options.h>
+#include <wolfssl/ssl.h> /* wolfSSL secure read/write methods */
+
+struct mg_tls {
+  WOLFSSL_CTX *ctx;
+  WOLFSSL *ssl;
+};
+#endif
 
 #define WEBSOCKET_OP_CONTINUE 0
 #define WEBSOCKET_OP_TEXT 1
@@ -1419,8 +1347,6 @@ struct mg_tls {
 #define WEBSOCKET_OP_CLOSE 8
 #define WEBSOCKET_OP_PING 9
 #define WEBSOCKET_OP_PONG 10
-
-
 
 struct mg_ws_message {
   struct mg_str data;  // Websocket message data
@@ -1438,17 +1364,10 @@ size_t mg_ws_printf(struct mg_connection *c, int op, const char *fmt, ...);
 size_t mg_ws_vprintf(struct mg_connection *c, int op, const char *fmt,
                      va_list *);
 
-
-
-
 struct mg_connection *mg_sntp_connect(struct mg_mgr *mgr, const char *url,
                                       mg_event_handler_t fn, void *fn_data);
 void mg_sntp_request(struct mg_connection *c);
 int64_t mg_sntp_parse(const unsigned char *buf, size_t len);
-
-
-
-
 
 #define MQTT_CMD_CONNECT 1
 #define MQTT_CMD_CONNACK 2
@@ -1559,10 +1478,6 @@ void mg_mqtt_disconnect(struct mg_connection *, const struct mg_mqtt_opts *);
 size_t mg_mqtt_next_prop(struct mg_mqtt_message *, struct mg_mqtt_prop *,
                          size_t ofs);
 
-
-
-
-
 // Mongoose sends DNS queries that contain only one question:
 // either A (IPv4) or AAAA (IPv6) address lookup.
 // Therefore, we expect zero or one answer.
@@ -1597,10 +1512,6 @@ bool mg_dns_parse(const uint8_t *buf, size_t len, struct mg_dns_message *);
 size_t mg_dns_parse_rr(const uint8_t *buf, size_t len, size_t ofs,
                        bool is_question, struct mg_dns_rr *);
 
-
-
-
-
 #ifndef MG_JSON_MAX_DEPTH
 #define MG_JSON_MAX_DEPTH 30
 #endif
@@ -1615,9 +1526,6 @@ long mg_json_get_long(struct mg_str json, const char *path, long dflt);
 char *mg_json_get_str(struct mg_str json, const char *path);
 char *mg_json_get_hex(struct mg_str json, const char *path, int *len);
 char *mg_json_get_b64(struct mg_str json, const char *path, int *len);
-
-
-
 
 // JSON-RPC request descriptor
 struct mg_rpc_req {
@@ -1651,8 +1559,6 @@ void mg_rpc_list(struct mg_rpc_req *r);
 
 
 #if MG_ENABLE_TCPIP
-
-
 
 
 struct mg_tcpip_if;  // MIP network interface

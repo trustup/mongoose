@@ -169,7 +169,6 @@ struct mg_connection *mg_listen(struct mg_mgr *mgr, const char *url,
   if ((c = mg_alloc_conn(mgr)) == NULL) {
     MG_ERROR(("OOM %s", url));
   } else if (!mg_open_listener(c, url)) {
-    printf("TEST223\n");
     MG_ERROR(("Failed: %s, errno %d", url, errno));
     free(c);
     c = NULL;
